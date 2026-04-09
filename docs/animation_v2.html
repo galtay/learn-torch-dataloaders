@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataLoader Animation: Map-Style</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Menlo', 'Consolas', monospace;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      align-items: center;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 14px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #2a2a3e;
+      color: #e0e0e0;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #3a3a5e;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .speed-control {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .speed-control label {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .speed-control input {
+      width: 80px;
+    }
+
+    /* Config */
+    .config {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+
+    .config label {
+      color: #888;
+    }
+
+    .config select,
+    .config input[type="number"] {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 3px 6px;
+      border: 1px solid #444;
+      border-radius: 3px;
+      background: #2a2a3e;
+      color: #e0e0e0;
+      width: 60px;
+    }
+
+    .config select {
+      width: 80px;
+    }
+
+    /* Stage sections */
+    .stage {
+      margin-bottom: 20px;
+    }
+
+    .stage-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stage.hidden {
+      display: none;
+    }
+
+    /* Dataset grid */
+    .dataset-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 13px;
+      transition: all 0.3s ease;
+      background: #1a1a2e;
+    }
+
+    .cell.fetching {
+      background: transparent;
+      color: #fff;
+      border-color: #fff;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+      transform: scale(1.1);
+      z-index: 2;
+    }
+
+    .cell.fetched {
+      background: #111;
+      color: #444;
+      border-color: #222;
+    }
+
+    /* Sampler indices */
+    .sampler-indices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 40px;
+    }
+
+    .idx {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      font-size: 13px;
+      background: #1a1a2e;
+      border: 1px solid #333;
+      transition: all 0.3s ease;
+    }
+
+    .idx.consumed {
+      background: #111;
+      color: #444;
+      border-color: #222;
+    }
+
+    /* Batch sampler */
+    .batch-groups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 36px;
+    }
+
+    .batch-group {
+      display: flex;
+      gap: 2px;
+      padding: 4px 6px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #1a1a2e;
+      transition: all 0.3s ease;
+    }
+
+    .batch-group.active {
+      border-color: #fff;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+
+    .batch-group.distributed {
+      border-color: #444;
+    }
+
+    .batch-group.consumed {
+      opacity: 0.35;
+    }
+
+    .batch-group .idx {
+      width: 32px;
+      height: 28px;
+      font-size: 12px;
+      border: none;
+      background: transparent;
+    }
+
+    .batch-group.active .idx {
+      color: #fff;
+    }
+
+    .batch-group-label {
+      font-size: 10px;
+      color: #666;
+      margin-right: 4px;
+      align-self: center;
+    }
+
+    /* Single-worker fetcher/collate */
+    .fetcher-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      font-size: 13px;
+    }
+
+    .fetch-call {
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: #333;
+      color: #fff;
+      font-size: 12px;
+      border: 1px solid #444;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .fetch-arrow {
+      color: #666;
+    }
+
+    .collate-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      font-size: 13px;
+    }
+
+    .collate-input {
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: #2a2a3e;
+      border: 1px dashed #555;
+      color: #ccc;
+      font-size: 12px;
+    }
+
+    .collate-output {
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: #333;
+      color: #fff;
+      font-size: 12px;
+      border: 1px solid #444;
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* Multi-worker: worker lanes */
+    .worker-lanes {
+      display: flex;
+      gap: 12px;
+    }
+
+    .worker-lane {
+      flex: 1;
+      min-width: 150px;
+      border: 1px solid #333;
+      border-top: 3px solid #555;
+      border-radius: 6px;
+      padding: 10px;
+      background: #151522;
+    }
+
+    .worker-header {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      text-align: center;
+      color: #e0e0e0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .worker-section {
+      margin-bottom: 8px;
+    }
+
+    .worker-section-label {
+      font-size: 10px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .worker-index-queue {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 28px;
+    }
+
+    .wiq-batch {
+      padding: 3px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      background: #333;
+      color: #fff;
+      border: 1px solid #444;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .wiq-batch.processing {
+      background: #555;
+      color: #fff;
+      border-color: #555;
+    }
+
+    .worker-processing {
+      min-height: 28px;
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .worker-processing.active {
+      background: #333;
+      color: #fff;
+    }
+
+    .worker-status {
+      font-size: 11px;
+      text-align: center;
+      padding: 4px;
+      border-radius: 3px;
+      color: #555;
+    }
+
+    .worker-status.fetching {
+      color: #aaa;
+    }
+
+    .worker-status.collating {
+      color: #aaa;
+    }
+
+    .worker-status.sending {
+      color: #bbb;
+    }
+
+    /* Queue Layout */
+    .queue-split {
+      display: flex;
+      gap: 16px;
+      min-height: 40px;
+    }
+
+    .queue-col {
+      flex: 1;
+      border: 1px solid #333;
+      padding: 10px;
+      border-radius: 4px;
+      background: #151522;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .queue-col-title {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      text-align: center;
+      border-bottom: 1px solid #333;
+      padding-bottom: 4px;
+    }
+
+    .result-queue {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .result-item {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #333;
+      color: #fff;
+      border: 1px solid #444;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .result-item.l-q {
+      border-style: dashed;
+    }
+
+    .result-item.l-buf {
+      background: #333;
+      border-color: #888;
+      color: #fff;
+    }
+
+    .next-expected {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: #00b894;
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    /* Output batches */
+    .output-batches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 40px;
+    }
+
+    .output-batch {
+      padding: 6px 10px;
+      border-radius: 4px;
+      background: #333;
+      color: #fff;
+      font-size: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .output-batch.partial {
+      background: #222;
+      color: #aaa;
+      border: 1px solid #444;
+    }
+
+    input[type="range"] {
+      accent-color: #888;
+      cursor: pointer;
+    }
+
+    /* Log */
+    .log {
+      margin-top: 24px;
+      padding: 12px;
+      background: #0d0d1a;
+      border-radius: 4px;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #222;
+    }
+
+    .log-entry {
+      margin-bottom: 2px;
+      color: #777;
+    }
+
+    .log-entry .hl {
+      color: #fff;
+    }
+
+    .log-entry .c-main {
+      color: #aaa;
+      font-weight: bold;
+    }
+
+    .log-entry .c-w {
+      color: #aaa;
+      font-weight: bold;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>DataLoader Animation: Map-Style</h1>
+  <p class="subtitle">Step through each stage of the DataLoader pipeline</p>
+
+  <div class="config">
+    <div><label>n=</label><input type="number" id="cfg-n" value="16" min="4" max="50"></div>
+    <div><label>batch_size=</label><input type="number" id="cfg-batch" value="5" min="1" max="16"></div>
+    <div><label>shuffle=</label><select id="cfg-shuffle">
+        <option value="false">False</option>
+        <option value="true">True</option>
+      </select></div>
+    <div><label>drop_last=</label><select id="cfg-droplast">
+        <option value="false">False</option>
+        <option value="true">True</option>
+      </select></div>
+    <div><label>num_workers=</label><input type="number" id="cfg-workers" value="0" min="0" max="4"></div>
+    <div id="cfg-prefetch-wrap"><label>prefetch_factor=</label><input type="number" id="cfg-prefetch" value="2" min="1"
+        max="4"></div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-reset" onclick="reset()">Reset</button>
+    <button id="btn-prev" onclick="stepPrev()" disabled>Prev</button>
+    <button id="btn-next" onclick="stepNext()">Next</button>
+    <button id="btn-play" onclick="togglePlay()">Play</button>
+    <div class="speed-control">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="10" value="5">
+    </div>
+  </div>
+
+  <div class="stage" id="stage-dataset">
+    <div class="stage-label">Dataset (n=<span id="lbl-n">16</span>)</div>
+    <div class="dataset-grid" id="dataset-grid"></div>
+  </div>
+
+  <div class="stage" id="stage-sampler">
+    <div class="stage-label">Sampler &rarr; indices</div>
+    <div class="sampler-indices" id="sampler-indices"></div>
+  </div>
+
+  <div class="stage" id="stage-batchsampler">
+    <div class="stage-label">BatchSampler &rarr; grouped indices</div>
+    <div class="batch-groups" id="batch-groups"></div>
+  </div>
+
+  <div class="stage" id="stage-single-main">
+    <div class="stage-label">Main Process (num_workers=0)</div>
+    <div class="fetcher-area" id="single-fetcher"></div>
+    <div class="collate-area" id="single-collate"></div>
+  </div>
+
+  <!-- Multi-worker sections -->
+  <div class="stage" id="stage-workers">
+    <div class="stage-label">Workers</div>
+    <div class="worker-lanes" id="worker-lanes"></div>
+  </div>
+  <div class="stage" id="stage-result-queue">
+    <div class="stage-label">Main Process Queue Management</div>
+    <div class="queue-split">
+      <div class="queue-col">
+        <div class="queue-col-title">worker_result_queue (FIFO)</div>
+        <div class="result-queue" id="res-queue"></div>
+      </div>
+      <div class="queue-col">
+        <div class="queue-col-title">Reorder Dict (Buffer)</div>
+        <div class="result-queue" id="reorder-dict"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage-output">
+    <div class="stage-label">Output Batches</div>
+    <div class="output-batches" id="output-batches"></div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script>
+    const WORKER_COLORS = ['c-w', 'c-w', 'c-w', 'c-w'];
+    // In multi-worker mode, worker 0 has one extra "transform" stage to create
+    // realistic out-of-order arrivals while keeping every click semantically meaningful.
+    const WORKER_STEPS = [4, 3, 3, 3];
+
+    let n, batchSize, shuffle, dropLast, numWorkers, prefetchFactor;
+    let samplerIndices, batchGroups;
+    let phase, batchIdx, fetchIdx;
+    let playing, playTimer;
+    let fetchedValues;
+
+    // Multi-worker state
+    let workerStates, resQueue, reorderDict, nextExpectedBatch, nextBatchToAssign, nextWorkerToAdvance;
+
+    // History state
+    let history = [];
+    let historyIdx = -1;
+
+    function copyObj(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+    function captureState() {
+      return {
+        dom: {
+          dataset: document.getElementById('stage-dataset').innerHTML,
+          sampler: document.getElementById('stage-sampler').innerHTML,
+          batchsampler: document.getElementById('stage-batchsampler').innerHTML,
+          singleMain: document.getElementById('stage-single-main').innerHTML,
+          workers: document.getElementById('stage-workers').innerHTML,
+          resultQueue: document.getElementById('stage-result-queue').innerHTML,
+          output: document.getElementById('stage-output').innerHTML,
+          log: document.getElementById('log').innerHTML
+        },
+        js: {
+          n, batchSize, shuffle, dropLast, numWorkers, prefetchFactor,
+          samplerIndices, batchGroups, phase, batchIdx, fetchIdx,
+          fetchedValues: copyObj(fetchedValues),
+          workerStates: copyObj(workerStates),
+          resQueue: copyObj(resQueue),
+          reorderDict: copyObj(reorderDict),
+          nextExpectedBatch, nextBatchToAssign, nextWorkerToAdvance
+        }
+      };
+    }
+
+    function restoreState(state) {
+      document.getElementById('stage-dataset').innerHTML = state.dom.dataset;
+      document.getElementById('stage-sampler').innerHTML = state.dom.sampler;
+      document.getElementById('stage-batchsampler').innerHTML = state.dom.batchsampler;
+      document.getElementById('stage-single-main').innerHTML = state.dom.singleMain;
+      document.getElementById('stage-workers').innerHTML = state.dom.workers;
+      document.getElementById('stage-result-queue').innerHTML = state.dom.resultQueue;
+      document.getElementById('stage-output').innerHTML = state.dom.output;
+      document.getElementById('log').innerHTML = state.dom.log;
+
+      const js = state.js;
+      n = js.n; batchSize = js.batchSize; shuffle = js.shuffle; dropLast = js.dropLast; numWorkers = js.numWorkers; prefetchFactor = js.prefetchFactor;
+      samplerIndices = js.samplerIndices; batchGroups = js.batchGroups;
+      phase = js.phase; batchIdx = js.batchIdx; fetchIdx = js.fetchIdx;
+      fetchedValues = copyObj(js.fetchedValues);
+      workerStates = copyObj(js.workerStates);
+      resQueue = copyObj(js.resQueue);
+      reorderDict = copyObj(js.reorderDict);
+      nextExpectedBatch = js.nextExpectedBatch; nextBatchToAssign = js.nextBatchToAssign;
+      nextWorkerToAdvance = js.nextWorkerToAdvance;
+      updateModeVisibility();
+
+      updateButtons();
+    }
+
+    function updateButtons() {
+      document.getElementById('btn-prev').disabled = historyIdx <= 0;
+      document.getElementById('btn-next').disabled = (historyIdx === history.length - 1 && phase === 'done');
+    }
+
+    function getSpeed() { return 1100 - document.getElementById('speed').value * 100; }
+
+    function log(html) {
+      const el = document.getElementById('log');
+      const e = document.createElement('div');
+      e.className = 'log-entry';
+      e.innerHTML = html;
+      el.appendChild(e);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function idxToLabel(i) {
+      let label = '', x = i;
+      do { label = String.fromCharCode(65 + (x % 26)) + label; x = Math.floor(x / 26) - 1; } while (x >= 0);
+      return label;
+    }
+
+    function shuffleArray(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function batchDataLabels(batchNum) {
+      return batchGroups[batchNum].map(i => idxToLabel(i));
+    }
+
+    function updateModeVisibility() {
+      const singleStage = document.getElementById('stage-single-main');
+      const workersStage = document.getElementById('stage-workers');
+      const queueStage = document.getElementById('stage-result-queue');
+      const prefetchWrap = document.getElementById('cfg-prefetch-wrap');
+      if (numWorkers === 0) {
+        singleStage.classList.remove('hidden');
+        workersStage.classList.add('hidden');
+        queueStage.classList.add('hidden');
+        prefetchWrap.style.display = 'none';
+      } else {
+        singleStage.classList.add('hidden');
+        workersStage.classList.remove('hidden');
+        queueStage.classList.remove('hidden');
+        prefetchWrap.style.display = '';
+      }
+    }
+
+    // ── Reset ──────────────────────────────────────────────────
+    function reset() {
+      stopPlay();
+
+      const nInput = document.getElementById('cfg-n');
+      n = Math.min(Math.max(parseInt(nInput.value), 4), 32);
+      nInput.value = n;
+
+      const batchInput = document.getElementById('cfg-batch');
+      batchSize = Math.min(Math.max(parseInt(batchInput.value), 1), 16);
+      batchInput.value = batchSize;
+
+      shuffle = document.getElementById('cfg-shuffle').value === 'true';
+      dropLast = document.getElementById('cfg-droplast').value === 'true';
+
+      const wInput = document.getElementById('cfg-workers');
+      numWorkers = Math.min(Math.max(parseInt(wInput.value), 0), 4);
+      wInput.value = numWorkers;
+
+      const prefInput = document.getElementById('cfg-prefetch');
+      prefetchFactor = Math.min(Math.max(parseInt(prefInput.value), 1), 4);
+      prefInput.value = prefetchFactor;
+      if (numWorkers === 0) {
+        prefetchFactor = null;
+      }
+      updateModeVisibility();
+
+      document.getElementById('lbl-n').textContent = n;
+
+      // Sampler
+      samplerIndices = Array.from({ length: n }, (_, i) => i);
+      if (shuffle) samplerIndices = shuffleArray(samplerIndices);
+
+      // Batch groups
+      batchGroups = [];
+      for (let i = 0; i < samplerIndices.length; i += batchSize) {
+        const g = samplerIndices.slice(i, i + batchSize);
+        if (dropLast && g.length < batchSize) break;
+        batchGroups.push(g);
+      }
+
+      phase = 'init';
+      batchIdx = 0; fetchIdx = 0; fetchedValues = [];
+
+      // Multi-worker state
+      nextBatchToAssign = 0;
+      nextExpectedBatch = 0;
+      nextWorkerToAdvance = 0;
+      resQueue = [];
+      reorderDict = {};
+      workerStates = [];
+      for (let w = 0; w < numWorkers; w++) {
+        const totalSteps = numWorkers === 1 ? 3 : (WORKER_STEPS[w] === 4 ? 4 : 3);
+        workerStates.push({ status: 'idle', currentBatch: null, queue: [], stepProgress: 0, totalSteps });
+      }
+
+      // Render dataset
+      const grid = document.getElementById('dataset-grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell'; cell.id = `cell-${i}`; cell.textContent = idxToLabel(i);
+        grid.appendChild(cell);
+      }
+
+      // Clear stages
+      document.getElementById('sampler-indices').innerHTML = '';
+      document.getElementById('batch-groups').innerHTML = '';
+      document.getElementById('output-batches').innerHTML = '';
+      document.getElementById('res-queue').innerHTML = '';
+      document.getElementById('reorder-dict').innerHTML = '';
+      document.getElementById('single-fetcher').innerHTML = '';
+      document.getElementById('single-collate').innerHTML = '';
+      document.getElementById('log').innerHTML = '';
+
+      // Build worker lanes
+      const lanes = document.getElementById('worker-lanes');
+      lanes.innerHTML = '';
+      for (let w = 0; w < numWorkers; w++) {
+        lanes.innerHTML += `
+        <div class="worker-lane" data-w="${w}">
+          <div class="worker-header">Worker ${w}</div>
+          <div class="worker-section">
+            <div class="worker-section-label">index_queue</div>
+            <div class="worker-index-queue" id="wiq-${w}"></div>
+          </div>
+          <div class="worker-section">
+            <div class="worker-section-label">processing</div>
+            <div class="worker-processing" id="wproc-${w}"></div>
+          </div>
+          <div class="worker-status" id="wstatus-${w}">idle</div>
+        </div>`;
+      }
+
+      const prefetchText = numWorkers > 0 ? prefetchFactor : 'n/a (single-process)';
+      log(`<span class="hl">Reset:</span> n=${n}, batch_size=${batchSize}, shuffle=${shuffle}, drop_last=${dropLast}, num_workers=${numWorkers}, prefetch_factor=${prefetchText}`);
+      log(`<span class="hl">Ready.</span> Click Next or Play to begin.`);
+
+      history = [captureState()];
+      historyIdx = 0;
+      updateButtons();
+    }
+
+    // ── Step dispatch ──────────────────────────────────────────
+    function executeStep() {
+      if (numWorkers === 0) {
+        stepSingleProcess();
+      } else {
+        stepMultiWorker();
+      }
+    }
+
+    function stepNext() {
+      if (historyIdx < history.length - 1) {
+        historyIdx++;
+        restoreState(history[historyIdx]);
+        return;
+      }
+      if (phase === 'done') return;
+
+      executeStep();
+
+      history.push(captureState());
+      historyIdx++;
+      updateButtons();
+    }
+
+    function stepPrev() {
+      if (historyIdx > 0) {
+        historyIdx--;
+        restoreState(history[historyIdx]);
+      }
+    }
+
+    // ── Single-process step (num_workers=0) ───────────────────
+    function stepSingleProcess() {
+      if (phase === 'init') {
+        phase = 'sampler';
+        renderSamplerIndices();
+        return;
+      }
+      if (phase === 'sampler') {
+        phase = 'batching';
+        renderBatchGroups();
+        markSamplerConsumed();
+        return;
+      }
+      if (phase === 'batching') {
+        if (batchGroups.length === 0) {
+          finish();
+          return;
+        }
+        batchIdx = 0;
+        phase = 'single_fetch';
+        log(`<span class="c-main">Main Process</span> is responsible for fetch + collate (num_workers=0).`);
+        return;
+      }
+      if (phase === 'single_fetch') {
+        const indices = batchGroups[batchIdx];
+        const labels = indices.map(i => idxToLabel(i));
+        clearAllFetchHighlights();
+        indices.forEach(idx => document.getElementById(`cell-${idx}`).classList.add('fetching'));
+        highlightBatchGroup(batchIdx, 'active');
+        renderSingleFetch(batchIdx, indices);
+        log(`<span class="c-main">Main Process</span> fetching Batch ${batchIdx}: dataset[${indices.join(', ')}] -> [${labels.join(', ')}]`);
+        phase = 'single_collate';
+        return;
+      }
+      if (phase === 'single_collate') {
+        const indices = batchGroups[batchIdx];
+        const labels = indices.map(i => idxToLabel(i));
+        indices.forEach(idx => {
+          const c = document.getElementById(`cell-${idx}`);
+          c.classList.remove('fetching');
+          c.classList.add('fetched');
+        });
+        renderSingleCollate(batchIdx, labels);
+        log(`<span class="c-main">Main Process</span> collating Batch ${batchIdx}: [${labels.join(', ')}]`);
+        phase = 'single_yield';
+        return;
+      }
+      if (phase === 'single_yield') {
+        const labels = batchDataLabels(batchIdx);
+        const isPartial = batchGroups[batchIdx].length < batchSize;
+        addOutputBatch(batchIdx, labels, isPartial);
+        markBatchGroup(batchIdx, 'consumed');
+        clearSingleMain();
+        log(`<span class="c-main">Main Process</span> yielded Batch ${batchIdx}.`);
+        batchIdx++;
+        if (batchIdx >= batchGroups.length) {
+          finish();
+        } else {
+          phase = 'single_fetch';
+        }
+        return;
+      }
+      if (phase === 'done') {
+        stopPlay();
+      }
+    }
+
+    // ── Multi-worker step ──────────────────────────────────────
+    function stepMultiWorker() {
+      if (phase === 'init') {
+        phase = 'sampler';
+        renderSamplerIndices();
+      }
+      else if (phase === 'sampler') {
+        phase = 'batching';
+        renderBatchGroups();
+        markSamplerConsumed();
+      }
+      else if (phase === 'batching') {
+        phase = 'distribute';
+        log(`<span class="hl">Distributing batches to workers (round-robin, prefetch_factor=${prefetchFactor})</span>`);
+      }
+      else if (phase === 'distribute') {
+        if (nextBatchToAssign >= batchGroups.length) {
+          phase = 'start_workers';
+          log(`<span class="c-main">Main Process</span> all currently available batches are dispatched; switching to worker execution.`);
+          return;
+        }
+        const w = nextBatchToAssign % numWorkers;
+        workerStates[w].queue.push(nextBatchToAssign);
+        renderWorkerQueue(w);
+        markBatchGroup(nextBatchToAssign, 'distributed');
+        log(`Batch ${nextBatchToAssign} \u2192 <span class="${WORKER_COLORS[w]}">Worker ${w}</span> index_queue`);
+        nextBatchToAssign++;
+
+        if (nextBatchToAssign >= prefetchFactor * numWorkers || nextBatchToAssign >= batchGroups.length) {
+          phase = 'start_workers';
+        }
+      }
+      else if (phase === 'start_workers') {
+        const startedWorker = startIdleWorkers();
+        if (!startedWorker) {
+          log(`<span class="c-main">Main Process</span> no queued batches to start this step.`);
+        }
+        phase = 'processing';
+      }
+      else if (phase === 'processing') {
+        const startedWorker = startIdleWorkers();
+        let advancedWorkerStep = false;
+        if (!startedWorker) {
+          advancedWorkerStep = advanceOneWorkerStep();
+        }
+        if (!startedWorker && !advancedWorkerStep) {
+          log(`<span class="c-main">Main Process</span> no worker compute step advanced; checking result queues.`);
+        }
+
+        if (reorderDict[nextExpectedBatch] || resQueue.length > 0) {
+          phase = 'yielding';
+        }
+        else if (workerStates.every(ws => ws.status === 'idle' && ws.queue.length === 0)) {
+          if (Object.keys(reorderDict).length > 0 || resQueue.length > 0) {
+            phase = 'yielding';
+          } else if (nextBatchToAssign < batchGroups.length) {
+            phase = 'distribute';
+          } else {
+            finish();
+          }
+        }
+      }
+      else if (phase === 'yielding') {
+        if (reorderDict[nextExpectedBatch]) {
+          const data = reorderDict[nextExpectedBatch];
+          delete reorderDict[nextExpectedBatch];
+
+          const isPartial = batchGroups[nextExpectedBatch].length < batchSize;
+          addOutputBatch(nextExpectedBatch, data, isPartial);
+          log(`<span class="c-main">Main Process</span> \u2192 Yielded Batch ${nextExpectedBatch} directly from Reorder Buffer.`);
+
+          doMainRefill();
+          nextExpectedBatch++;
+          renderReorderDict();
+        }
+        else if (resQueue.length > 0) {
+          const item = resQueue.shift();
+          renderResQueue();
+          if (item.batchNum === nextExpectedBatch) {
+            const isPartial = batchGroups[item.batchNum].length < batchSize;
+            addOutputBatch(item.batchNum, item.data, isPartial);
+            log(`<span class="c-main">Main Process</span> \u2192 Popped Batch ${item.batchNum} from worker_result_queue. Yielding directly.`);
+
+            doMainRefill();
+            nextExpectedBatch++;
+          } else {
+            reorderDict[item.batchNum] = item.data;
+            renderReorderDict();
+            log(`<span class="c-main">Main Process</span> \u2192 Popped Batch ${item.batchNum} from worker_result_queue. Expected b${nextExpectedBatch}, buffering...`);
+          }
+        } else {
+          log(`<span class="c-main">Main Process</span> no queue item ready to yield this step.`);
+        }
+
+        if (nextExpectedBatch >= batchGroups.length) {
+          finish();
+        } else {
+          if (!reorderDict[nextExpectedBatch] && resQueue.length === 0) {
+            const workersHaveWork = workerStates.some(ws => ws.status !== 'idle' || ws.queue.length > 0);
+            phase = workersHaveWork ? 'processing' : 'distribute';
+          }
+        }
+      }
+      else if (phase === 'done') { stopPlay(); }
+    }
+
+    function nextActiveWorker() {
+      if (numWorkers <= 0) return -1;
+      for (let i = 0; i < numWorkers; i++) {
+        const w = (nextWorkerToAdvance + i) % numWorkers;
+        if (workerStates[w].status !== 'idle') {
+          nextWorkerToAdvance = (w + 1) % numWorkers;
+          return w;
+        }
+      }
+      return -1;
+    }
+
+    function advanceOneWorkerStep() {
+      const w = nextActiveWorker();
+      if (w === -1) return false;
+
+      const ws = workerStates[w];
+      const bNum = ws.currentBatch;
+      const indices = batchGroups[bNum];
+      const labels = indices.map(i => idxToLabel(i));
+      const hasTransformStage = ws.totalSteps === 4;
+      const transformStep = hasTransformStage ? 2 : -1;
+      const collateStep = ws.totalSteps - 1;
+      ws.stepProgress++;
+
+      if (ws.stepProgress === 1) {
+        clearAllFetchHighlights();
+        indices.forEach(idx => document.getElementById(`cell-${idx}`).classList.add('fetching'));
+        ws.status = 'fetching';
+        setWorkerProc(w, `fetching: dataset[${indices.join(',')}]`);
+        log(`<span class="${WORKER_COLORS[w]}">Worker ${w}</span> fetching batch ${bNum}: [${labels.join(', ')}]`);
+      }
+      else if (ws.stepProgress === transformStep) {
+        ws.status = 'fetching';
+        setWorkerProc(w, `running dataset transforms for b${bNum}`);
+        log(`<span class="${WORKER_COLORS[w]}">Worker ${w}</span> running transforms for batch ${bNum}`);
+      }
+      else if (ws.stepProgress === collateStep) {
+        ws.status = 'collating';
+        setWorkerProc(w, `collating: [${labels.join(',')}]`);
+        batchGroups[bNum].forEach(idx => {
+          const c = document.getElementById(`cell-${idx}`);
+          c.classList.remove('fetching');
+          c.classList.add('fetched');
+        });
+        log(`<span class="${WORKER_COLORS[w]}">Worker ${w}</span> collating batch ${bNum}`);
+      }
+      else if (ws.stepProgress >= ws.totalSteps) {
+        ws.status = 'sending';
+        resQueue.push({ batchNum: bNum, data: labels });
+        renderResQueue();
+        markBatchGroup(bNum, 'consumed');
+        log(`<span class="${WORKER_COLORS[w]}">Worker ${w}</span> \u2192 worker_result_queue: (b${bNum}, [${labels.join(', ')}])`);
+
+        setWorkerProc(w, '');
+        ws.status = 'idle';
+        ws.currentBatch = null;
+        ws.stepProgress = 0;
+      }
+
+      renderWorkerStatus(w);
+      return true;
+    }
+
+    function startIdleWorkers() {
+      for (let w = 0; w < numWorkers; w++) {
+        const ws = workerStates[w];
+        if (ws.status === 'idle' && ws.queue.length > 0) {
+          ws.currentBatch = ws.queue.shift();
+          ws.status = 'starting';
+          ws.stepProgress = 0;
+          renderWorkerQueue(w);
+          renderWorkerStatus(w);
+          log(`<span class="${WORKER_COLORS[w]}">Worker ${w}</span> picked up Batch ${ws.currentBatch} from index_queue to start computing.`);
+          setWorkerProc(w, `initializing b${ws.currentBatch}`);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // ── Render helpers ─────────────────────────────────────────
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      e.className = cls;
+      e.textContent = text;
+      return e;
+    }
+
+    function renderSamplerIndices() {
+      const container = document.getElementById('sampler-indices');
+      container.innerHTML = '';
+      samplerIndices.forEach((idx, i) => {
+        const e = document.createElement('div');
+        e.className = 'idx'; e.id = `sidx-${i}`; e.textContent = idx;
+        container.appendChild(e);
+      });
+      const name = shuffle ? 'RandomSampler' : 'SequentialSampler';
+      log(`<span class="c-sampler">${name}</span> produced indices: [${samplerIndices.join(', ')}]`);
+    }
+
+    function renderBatchGroups() {
+      const container = document.getElementById('batch-groups');
+      container.innerHTML = '';
+      batchGroups.forEach((group, i) => {
+        const g = document.createElement('div');
+        g.className = 'batch-group'; g.id = `bgroup-${i}`;
+        const lbl = document.createElement('span');
+        lbl.className = 'batch-group-label'; lbl.textContent = `b${i}`;
+        g.appendChild(lbl);
+        group.forEach(idx => { g.appendChild(el('div', 'idx', idx)); });
+        container.appendChild(g);
+      });
+      const strs = batchGroups.map(g => `[${g.join(',')}]`).join(', ');
+      let msg = `<span class="c-sampler">BatchSampler</span> grouped into ${batchGroups.length} batches: ${strs}`;
+      if (dropLast && n % batchSize !== 0) msg += ` <span class="c-batch">(partial batch dropped)</span>`;
+      log(msg);
+    }
+
+    function markSamplerConsumed() {
+      samplerIndices.forEach((_, i) => document.getElementById(`sidx-${i}`).classList.add('consumed'));
+    }
+
+    function highlightBatchGroup(idx, cls) {
+      batchGroups.forEach((_, i) => {
+        const e = document.getElementById(`bgroup-${i}`);
+        e.classList.remove('active');
+        if (i < idx) e.classList.add('consumed');
+      });
+      document.getElementById(`bgroup-${idx}`).classList.add(cls);
+    }
+
+    function markBatchGroup(idx, cls) {
+      const e = document.getElementById(`bgroup-${idx}`);
+      e.classList.remove('active', 'distributed');
+      e.classList.add(cls);
+    }
+
+    function clearFetchHighlights(w = -1) {
+      document.querySelectorAll('.cell.fetching')
+        .forEach(c => { c.classList.remove('fetching'); });
+    }
+
+    function clearAllFetchHighlights() {
+      document.querySelectorAll('.cell.fetching')
+        .forEach(c => { c.classList.remove('fetching'); });
+    }
+
+    function clearSingleMain() {
+      document.getElementById('single-fetcher').innerHTML = '';
+      document.getElementById('single-collate').innerHTML = '';
+    }
+
+    function renderSingleFetch(batchNum, indices) {
+      const fetcher = document.getElementById('single-fetcher');
+      fetcher.innerHTML = '';
+      const fetchCall = document.createElement('div');
+      fetchCall.className = 'fetch-call';
+      fetchCall.textContent = `_MapDatasetFetcher.fetch(b${batchNum})`;
+      const arrow = document.createElement('div');
+      arrow.className = 'fetch-arrow';
+      arrow.textContent = '->';
+      const data = document.createElement('div');
+      data.className = 'collate-input';
+      data.textContent = `[dataset[${indices.join('], dataset[')}]]`;
+      fetcher.appendChild(fetchCall);
+      fetcher.appendChild(arrow);
+      fetcher.appendChild(data);
+      document.getElementById('single-collate').innerHTML = '';
+    }
+
+    function renderSingleCollate(batchNum, labels) {
+      const collate = document.getElementById('single-collate');
+      collate.innerHTML = '';
+      const input = document.createElement('div');
+      input.className = 'collate-input';
+      input.textContent = `input samples: [${labels.join(', ')}]`;
+      const arrow = document.createElement('div');
+      arrow.className = 'fetch-arrow';
+      arrow.textContent = '->';
+      const out = document.createElement('div');
+      out.className = 'collate-output';
+      out.textContent = `default_collate -> Batch ${batchNum}`;
+      collate.appendChild(input);
+      collate.appendChild(arrow);
+      collate.appendChild(out);
+    }
+
+    function renderWorkerQueue(w) {
+      const container = document.getElementById(`wiq-${w}`);
+      container.innerHTML = '';
+      workerStates[w].queue.forEach(bNum => {
+        const chip = document.createElement('div');
+        chip.className = 'wiq-batch';
+        chip.textContent = `b${bNum}: [${batchGroups[bNum].join(',')}]`;
+        container.appendChild(chip);
+      });
+    }
+
+    function renderWorkerStatus(w) {
+      const ws = workerStates[w];
+      const el = document.getElementById(`wstatus-${w}`);
+      el.textContent = ws.status === 'idle' ? 'idle' : ws.status;
+      el.className = 'worker-status ' + (ws.status === 'idle' ? '' : ws.status);
+    }
+
+    function setWorkerProc(w, text) {
+      const el = document.getElementById(`wproc-${w}`);
+      el.textContent = text;
+      el.className = 'worker-processing' + (text ? ' active' : '');
+    }
+
+    function renderResQueue() {
+      const container = document.getElementById('res-queue');
+      container.innerHTML = '';
+      resQueue.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'result-item l-q';
+        div.textContent = `(b${item.batchNum}, [${item.data.join(', ')}])`;
+        container.appendChild(div);
+      });
+    }
+
+    function renderReorderDict() {
+      const container = document.getElementById('reorder-dict');
+      container.innerHTML = '';
+      for (const bNum in reorderDict) {
+        const data = reorderDict[bNum];
+        const div = document.createElement('div');
+        div.className = 'result-item l-buf';
+        div.textContent = `dict[${bNum}] = [${data.join(', ')}]`;
+        container.appendChild(div);
+      }
+    }
+
+    function doMainRefill() {
+      if (nextBatchToAssign < batchGroups.length) {
+        const targetWorker = nextBatchToAssign % numWorkers;
+        workerStates[targetWorker].queue.push(nextBatchToAssign);
+        log(`<span class="c-main">Main Process</span> \u2192 Refilled Batch ${nextBatchToAssign} \u2192 <span class="${WORKER_COLORS[targetWorker]}">Worker ${targetWorker}</span> index_queue`);
+        renderWorkerQueue(targetWorker);
+        nextBatchToAssign++;
+      }
+    }
+
+    function addOutputBatch(batchNum, data, isPartial) {
+      const outputEl = document.getElementById('output-batches');
+      const b = document.createElement('div');
+      b.className = 'output-batch' + (isPartial ? ' partial' : '');
+      b.textContent = `Batch ${batchNum}: [${data.join(', ')}]` + (isPartial ? ' (partial)' : '');
+      outputEl.appendChild(b);
+    }
+
+    function finish() {
+      phase = 'done';
+      clearAllFetchHighlights();
+      log(`<span class="hl">Done!</span> All ${batchGroups.length} batches yielded.`);
+      updateButtons();
+      stopPlay();
+    }
+
+    // ── Playback ───────────────────────────────────────────────
+    function togglePlay() {
+      if (playing) { stopPlay(); }
+      else { playing = true; document.getElementById('btn-play').textContent = 'Pause'; playTick(); }
+    }
+    function playTick() {
+      if (!playing || (phase === 'done' && historyIdx === history.length - 1)) { stopPlay(); return; }
+      stepNext();
+      playTimer = setTimeout(playTick, getSpeed());
+    }
+    function stopPlay() {
+      playing = false;
+      document.getElementById('btn-play').textContent = 'Play';
+      clearTimeout(playTimer);
+    }
+
+    reset();
+  </script>
+</body>
+
+</html>
