@@ -1,6 +1,7 @@
 # DataLoader Architecture
 
 Visual guide to how PyTorch DataLoaders work internally.
+Based on [torch.utils.data](https://docs.pytorch.org/docs/2.11/data.html) from PyTorch 2.11.
 
 ---
 
@@ -18,25 +19,25 @@ graph LR
 
 ### Map-Style Components
 
-| Component | Class | Role |
+| Component | Default Implementation | Role |
 |-----------|-------|------|
-| **Dataset** | User-provided | Defines `__getitem__` and `__len__` |
-| **Sampler** | `SequentialSampler` (`RandomSampler` if `shuffle=True`) | Produces indices that control access order |
-| **BatchSampler** | `BatchSampler` | Groups sampler indices into lists of `batch_size` |
-| **Fetcher** | `_MapDatasetFetcher` | Calls `dataset[idx]` for each index in a batch |
-| **CollateFunction** | `default_collate` | Converts list of samples into a batch tensor |
-| **WorkerQueues** | `index_queue` + `worker_result_queue` | Distributes work to and collects results from workers |
+| **Dataset** | User-provided ([Dataset](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.Dataset)) | Defines `__getitem__` and `__len__` |
+| **Sampler** | [SequentialSampler](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.SequentialSampler) ([RandomSampler](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.RandomSampler) if `shuffle=True`) | Produces indices that control access order |
+| **BatchSampler** | [BatchSampler](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.BatchSampler) | Groups sampler indices into lists of `batch_size` |
+| **Fetcher** | [`_MapDatasetFetcher`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/_utils/fetch.py#L48) | Calls `dataset[idx]` for each index in a batch |
+| **CollateFunction** | [default_collate](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.default_collate) | Converts list of samples into a batch tensor |
+| **WorkerQueues** | [`index_queue`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/dataloader.py#L1159) + [`worker_result_queue`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/dataloader.py#L1150) | Distributes work to and collects results from workers |
 
 ### Iterable-Style Components
 
-| Component | Class | Role |
+| Component | Default Implementation | Role |
 |-----------|-------|------|
-| **Dataset** | User-provided | Defines `__iter__` |
-| **Sampler** | `_InfiniteConstantSampler` | Dummy sampler that yields `None` forever |
-| **BatchSampler** | `BatchSampler` | Counts how many items to pull per batch |
-| **Fetcher** | `_IterableDatasetFetcher` | Calls `next(dataset_iter)` x `batch_size` to fill a batch |
-| **CollateFunction** | `default_collate` | Converts list of samples into a batch tensor |
-| **WorkerQueues** | `index_queue` + `worker_result_queue` | Distributes work to and collects results from workers |
+| **Dataset** | User-provided ([IterableDataset](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.IterableDataset)) | Defines `__iter__` |
+| **Sampler** | [`_InfiniteConstantSampler`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/dataloader.py#L94) | Dummy sampler that yields `None` forever |
+| **BatchSampler** | [BatchSampler](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.BatchSampler) | Counts how many items to pull per batch |
+| **Fetcher** | [`_IterableDatasetFetcher`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/_utils/fetch.py#L21) | Calls `next(dataset_iter)` x `batch_size` to fill a batch |
+| **CollateFunction** | [default_collate](https://docs.pytorch.org/docs/2.11/data.html#torch.utils.data.default_collate) | Converts list of samples into a batch tensor |
+| **WorkerQueues** | [`index_queue`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/dataloader.py#L1159) + [`worker_result_queue`](https://github.com/pytorch/pytorch/blob/v2.11.0/torch/utils/data/dataloader.py#L1150) | Distributes work to and collects results from workers |
 
 ---
 
